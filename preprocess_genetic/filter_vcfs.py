@@ -1,7 +1,7 @@
 import io
 import os
-import numpy as np
 import pandas as pd
+import numpy as np
 import gzip
 
 def get_vcf_names(vcf_path):
@@ -36,18 +36,20 @@ def main():
     
     
     genes = pd.read_csv("gene_list.csv")
-    files = os.listdir("YOUR_PATH_TO_VCFS")
+    files = os.listdir("[insert file]")
     
     
     for vcf_file in files:
-        file_name = "YOUR_PATH_TO_VCFS" + vcf_file
+        file_name = "[insert file]" + vcf_file
         
         output_file = open('log.txt','a')
         output_file.write(file_name)
         output_file.close()
-        names = get_vcf_names(file_name)
-        vcf = pd.read_csv(file_name, compression='gzip', comment='#', chunksize=10000, delim_whitespace=True, header=None, names=names)
-        vcf = pd.concat(vcf, ignore_index=True)
+        # names = get_vcf_names(file_name)
+        # vcf = pd.read_csv(file_name, compression='gzip', comment='#', chunksize=10000, delim_whitespace=True, header=None, names=names)
+        # vcf = pd.concat(vcf, ignore_index=True)
+        vcf = read_vcf(file_name)
+        print(vcf)
         
         start = vcf_file.find("ADNI_ID.") + len("ADNI_ID.")
         end = vcf_file.find("output.vcf")
@@ -64,7 +66,7 @@ def main():
             boo = in_between(positions[i], relevent)
             if i % 500 == 0:
                 output_file = open('log.txt','a')
-                output_file.write(" " + str(boo) + " ")
+                output_file.write(f"Position: {positions[i]}, Relevant: {boo}\n")
                 output_file.close()
             if boo:
                 indexes.append(i)
