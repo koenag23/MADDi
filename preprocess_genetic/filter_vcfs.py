@@ -1,7 +1,8 @@
+
 import io
 import os
-import pandas as pd
 import numpy as np
+import pandas as pd
 import gzip
 
 def get_vcf_names(vcf_path):
@@ -36,44 +37,43 @@ def main():
     
     
     genes = pd.read_csv("gene_list.csv")
-    files = os.listdir("[insert file]")
+    files = os.listdir("vcf_collection/")
     
     
     for vcf_file in files:
-        file_name = "[insert file]" + vcf_file
+        file_name = "vcf_collection/" + vcf_file
         
-        output_file = open('log.txt','a')
-        output_file.write(file_name)
-        output_file.close()
-        # names = get_vcf_names(file_name)
-        # vcf = pd.read_csv(file_name, compression='gzip', comment='#', chunksize=10000, delim_whitespace=True, header=None, names=names)
-        # vcf = pd.concat(vcf, ignore_index=True)
-        vcf = read_vcf(file_name)
-        print(vcf)
+        print(vcf_file)
+        
+        names = get_vcf_names(file_name)
+        chunk_size = 50000
+        vcf_chunks = pd.read_csv(file_name, compression='gzip', comment='#', chunksize=chunk_size, sep=r'\s+', header=None, names=names)
         
         start = vcf_file.find("ADNI_ID.") + len("ADNI_ID.")
-        end = vcf_file.find("output.vcf")
+        end = vcf_file.find(".vcf")
         substring = vcf_file[start:end]
         relevent = genes[genes["chrom"] == substring]
         relevent = relevent.reset_index()
         
-        positions = vcf["POS"]
-        
-        
+        # Concatenate with debug output
         indexes = []
-        for i in range(len(positions)):
+        frames = []
+        for num, chunk in enumerate(vcf_chunks):
+            indexes = []
+            print(f"Processing chunk {num + 1}, shape: {chunk.shape}")
             
-            boo = in_between(positions[i], relevent)
-            if i % 500 == 0:
-                output_file = open('log.txt','a')
-                output_file.write(f"Position: {positions[i]}, Relevant: {boo}\n")
-                output_file.close()
-            if boo:
-                indexes.append(i)
+            positions = chunk["POS"]
         
-        if len(indexes) != 0:
-            df = vcf.iloc[indexes]
-            df.to_pickle(vcf_file[:-4] + ".pkl")
+            for i in range(len(positions)):
+                index = i + num * chunk_size
+                if in_between(positions[index], relevent):
+                    indexes.append(i)
+            
+            if len(indexes) != 0:
+                frames.append(chunk.iloc[indexes])
+        
+        df = pd.concat(frames, ignore_index=True)
+        df.to_pickle(vcf_file[:-7] + ".pkl")
         
     
 
