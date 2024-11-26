@@ -51,7 +51,7 @@ def main():
         output_file.close()
         names = get_vcf_names(file_name)
         vcf_chunks = pd.read_csv(file_name, compression='gzip', comment='#', chunksize=10000, delim_whitespace=True, header=None, names=names)
-
+ 
         # To process each chunk at a time and add it to the data frame
         # Note: currently set to only process first 11 chunks
         # vcf = pd.DataFrame()
