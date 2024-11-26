@@ -2,6 +2,7 @@
 import io
 import os
 import numpy as np
+import numpy as np
 import pandas as pd
 import gzip
 
@@ -50,6 +51,7 @@ def main():
         vcf_chunks = pd.read_csv(file_name, compression='gzip', comment='#', chunksize=chunk_size, sep=r'\s+', header=None, names=names)
         
         start = vcf_file.find("ADNI_ID.") + len("ADNI_ID.")
+        end = vcf_file.find(".vcf")
         end = vcf_file.find(".vcf")
         substring = vcf_file[start:end]
         relevent = genes[genes["chrom"] == substring]

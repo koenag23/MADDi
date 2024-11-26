@@ -25,6 +25,23 @@ The CSVs used in the scripts above need to be obtained from ADNI directly and ar
 
 To preprocess imaging data, first run preprocess_images.py with the directory where images are stored as the argument. Then, use the file created from the script to run the notebook in preprocess_images/splitting_image_data.ipynb to split your data into training and testing.
 
+Where to get the genetic data from ADNI:
+1. Go to Search & Download
+2. Go to Genetic Files (or Download -> Genetic Files)
+3. Click ALL in left tab
+4. Find "ADNI WGS Data - GATK" files (use search feature if needed)
+5. Download VCF files for each of the chromosomes (from chr01 to chr23) (There should be 23 downloads in total)
+6. Each download will give you a gzip file (.vcf.gz) and a tabix file (.vcf.gz.tbi)
+7. Add both files to an overall directory for all VCF files
+8. Use that directory path in filter_vcfs.py
+
+We have not gotten past filter_vcfs.py so we have not edited any of the other code.
+
+Running filter_vcfs.py:
+1. Ensure that you have all the required packages from requirements.txt in the general folder
+2. Add in the VCF directory path into filter_vcfs.py
+3. Ideally, it will create a .pkl file with the genes that are relevant (according to gene_list.csv which should already be in the directory)
+
 To preprocess genetic data (SNPs), first obtain VCF files from ADNI. Then use the vcftools package to filter the files based on your chosen criteria (Hardy-Weinberg equilibrium, genotype quality, minor allele frequency, etc.). To further filter the VCF files according to the AD-related genes from AlzGene Database (http://www.alzgene.org/), run filter_vcfs.py script. Next, to compile all the genetic files together run concat_vcfs.py. Finally, to further reduce the number of features, run the notebook create_genetic_dataset.ipynb. All scripts can be found in the preprocess_genetic folder. 
 
 ## Training and Evaluation
