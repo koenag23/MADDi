@@ -23,6 +23,7 @@ def create_dataset(meta, meta_all,path_to_datadir):
             path = os.path.join(path_to_datadir, file)
             print(path)
             img_id = file.split(start)[-1].split(end)[0]
+            print(img_id)
             idx = meta[meta["Image Data ID"] == img_id].index[0]
             im = nib.load(path).get_fdata()
             n_i, n_j, n_k = im.shape
@@ -36,13 +37,16 @@ def create_dataset(meta, meta_all,path_to_datadir):
             label = meta.at[idx, "Group"]
             subject = meta.at[idx, "Subject"]
             norm_im = normalize_img(im)
-            meta_all = meta_all.append({"img_array": im,"label": label,"subject":subject}, ignore_index=True)
+            row = pd.DataFrame(data={'img_array': [1], 'label': label, "subject":subject})
+            row['img_array'] = row['img_array'].astype('object')
+            row.at[0,'img_array'] = im
+            meta_all = pd.concat([meta_all, row])
             
 
     meta_all.to_pickle("mri_meta.pkl")
-    meta_all.flush()
+    """ meta_all.flush()
     os.fsync(meta_all.fileno())
-    time.sleep(0.5)
+    time.sleep(0.5) """
 
 
 
@@ -61,6 +65,7 @@ def main():
     meta["Group"] = pd.factorize(meta["Group"])[0]
     #initialize new dataset where arrays will go
     meta_all = pd.DataFrame(columns = ["img_array","label","subject"])
+    print(meta)
     create_dataset(meta, meta_all, path_to_datadir)
     
 if __name__ == '__main__':
