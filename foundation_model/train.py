@@ -11,7 +11,7 @@ model = AutoModelForCausalLM.from_pretrained("mlfoundations/tabula-8b")
 device = torch.device("cpu")
 model = model.to(device)
 
-file_path = "[INSERT CSV FILE]"
+file_path = '../preprocess_clinical/clinical.csv' # INSERT CSV FILE
 df = pd.read_csv(file_path)
 # Need to convert csv data to serialized format for tabula-8b
 tabular_data = "\n".join(df.apply(lambda row: " | ".join(f"{col}: {row[col]}" for col in df.columns), axis=1))
