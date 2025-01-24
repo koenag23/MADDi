@@ -3,51 +3,63 @@ import os
 import numpy as np
 import pandas as pd
 import pickle as pkl
-
+from tqdm import tqdm
+def assign_genotype_value(genotype):
+    """
+    Assign values to genotypes based on the following rules:
+    - 0/0 -> 0
+    - n/n -> 1 (where n is any non-zero digit and both alleles are the same)
+    - n/m or m/n -> 2 (where n and m are different non-zero digits)
+    - ././ -> 3 (missing data)
+    
+    Parameters:
+        genotype (str): The genotype string in the format "a/b".
+    
+    Returns:
+        int: The assigned value based on the genotype.
+    """
+    if genotype == "0/0":
+        return 0
+    elif genotype == "./.":
+        return 3
+    else:
+        try:
+            # Split the genotype into two alleles
+            alleles = genotype.split("/")
+            # Convert alleles to integers for comparison
+            allele1, allele2 = int(alleles[0]), int(alleles[1])
+            
+            if allele1 == allele2 and allele1 != 0:
+                return 1  # n/n
+            elif allele1 != allele2:
+                return 2  # n/m or m/n
+        except (ValueError, IndexError):
+            # If parsing fails, treat it as missing or invalid data
+            return 3
 
 def main():
     
-    
-    
-    files = os.listdir("gene_data/")
-    diag = pd.read_csv("../general/diagnosis_full.csv")[["Subject", "GroupN"]]
+    files = os.listdir("output_directory/")
+    diag = pd.read_csv("diagnosis_full.csv")[["Subject", "GroupN"]]
     
     vcfs = []
     
-    for vcf_file in files:
-        file_name = "gene_data/" + vcf_file
+    for vcf_file in tqdm(files):
+        file_name = "output_directory/" + vcf_file
         
-        #vcf = pd.read_pickle(file_name)
-        
-        with open(file_name, "rb") as f:
-            object = pkl.load(f)
-            
-        df = pd.DataFrame(object)
-        df.to_csv(r'file.csv')
-        
-        print(vcf["Subject"])
-	
-        vcf = vcf.drop(['#CHROM', 'POS', 'ID','REF','ALT','QUAL','FILTER','INFO', 'FORMAT'], axis=1)
+        vcf = pd.read_pickle(file_name)
+        vcf = vcf.iloc[:, 9:]
         vcf = vcf.T
-        vcf.reset_index(level=0, inplace=True)
-        vcf["Subject"] = vcf["Subject"].str.replace("s", "S").str.replace("\n", "")
+        vcf.reset_index(inplace=True)
+        vcf.rename(columns={"index": "Subject"}, inplace=True)
+        
         merged = diag.merge(vcf, on = "Subject")
         merged = merged.rename(columns={"Subject": "subject"})
-        d = {'0/0': 0, '0/1': 1, '1/0': 1,  '1/1': 2, "./.": 3}
         cols = list(set(merged.columns) - set(["subject", "GroupN"]))
-        for col in cols:
-            merged[col] = merged[col].str[:3].replace(d)
-            idx = cols.index(col)
-            if idx % 500 == 0:
-                output_file = open('log_clean.txt','a')
-                output_file.write("Percent done: " + str((idx/len(cols))*100) + "\n")
-                output_file.close()
-        
-        merged.to_pickle(vcf_file + "clean.pkl")
+        for col in tqdm(cols, desc=f"Processing columns in {vcf_file}"):
+            merged[col] = merged[col].apply(lambda x: assign_genotype_value(str(x)[:3]) if pd.notna(x) else 3) 
 
-        vcf = vcf.groupby('Subject', group_keys=False).apply(lambda x: x.loc[x.Group.idxmax()])
-
-        vcfs.append(vcf)
+        vcfs.append(merged)
     
     vcf = pd.concat(vcfs, ignore_index=True)
     vcf = vcf.drop_duplicates()
