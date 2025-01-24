@@ -5,6 +5,7 @@ import pandas as pd
 import gzip
 import gc
 import numpy as np
+from tqdm import tqdm
 
 def get_vcf_names(vcf_path):
     with gzip.open(vcf_path, "rt") as ifile:
@@ -31,9 +32,8 @@ def preprocess_file(vcf_file):
     # path name of the genes list
     genes = pd.read_csv("gene_list.csv")
     
-    file_name = "vcfs/" + vcf_file
+    file_name = "vcf_collection/ADNI.808_indiv.minGQ_21.pass.ADNI_ID.chr23.vcf.gz"
         
-    print(vcf_file)
     
     names = get_vcf_names(file_name)
     chunk_size = 5000
@@ -71,34 +71,34 @@ def preprocess_file(vcf_file):
     # Concatenate with debug output
     frames = []
     indexed_items = enumerate(vcf_chunks)
-    print(indexed_items)
-    for num, chunk in indexed_items:
+    for num, chunk in tqdm(indexed_items):
         indexes = []
-        print(f"Processing chunk {num + 1}, shape: {chunk.shape} for {file_name}")
         positions = chunk["POS"]
         for i, position in enumerate(positions):
             for j in range(n_interval):
                 start, end = starts[j], ends[j]
                 if (position >= start) and (position <= end):
                     indexes.append(i)
-                    break
+                    
             
         if len(indexes) != 0:
             frames.append(chunk.iloc[indexes])
             
-    df = pd.concat(frames, ignore_index=True)
-    df.to_pickle(vcf_file[:-7] + ".pkl")
-    gc.collect()
+    if len(frames) != 0:
+        df = pd.concat(frames, ignore_index=True)
+        df.to_pickle(vcf_file[:-7] + ".pkl")
+        gc.collect()
 
 def main():
-    
+    preprocess_file('hi')
     # folder name of where the vcf files are stored
-    files = os.listdir("vcfs/")
+    files = os.listdir("vcf_collection/")
+    files = [file for file in files if file.endswith(".gz")]
     files.sort()
+    #print(files)
+    for file in files[14:]:
+        preprocess_file(file) 
     
-    preprocess_file(files[1])
-    """ for file in files:
-        preprocess_file(file) """
     
 
     
