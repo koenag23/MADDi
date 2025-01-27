@@ -1,3 +1,5 @@
+# === ZERO SHOT ATTEMPT ===
+
 # Load model directly
 import torch
 import pandas as pd
@@ -17,8 +19,13 @@ df = pd.read_csv(file_path)
 tabular_data = "\n".join(df.apply(lambda row: " | ".join(f"{col}: {row[col]}" for col in df.columns), axis=1))
 tabular_input = tokenizer(tabular_data, return_tensors="pt")
 
-# REPEAT FOR OTHER TYPES OF TABULAR INPUT (with diff variables)
+# === Generate Alzheimer's disease diagnosis inference ===
+with torch.no_grad():
+    outputs = model.generate(**tabular_input, max_length=512, num_return_sequences=1)
 
-# Combine inputs (concatenation, cross-attention?)
-# Note: may need to fine tune for cross-attention
-# NEED TO HAVE TRAINING, TESTING, VALIDATION
+# Decode the model's output
+diagnosis_inference = tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+# === Print the inference ===
+print("Alzheimer's Disease Diagnosis Inference:")
+print(diagnosis_inference)
