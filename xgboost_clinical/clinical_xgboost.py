@@ -4,7 +4,8 @@ from sklearn.metrics import accuracy_score, classification_report
 import xgboost as xgb
 
 # 1. Load the data
-file_path = '../preprocess_clinical/clinical.csv'
+file_path = './preprocess_clinical/clinical.csv'
+#file_path = '/absolute/path/to/clinical.csv'
 data = pd.read_csv(file_path)
 
 
