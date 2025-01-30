@@ -48,8 +48,6 @@ def preprocess_file(vcf_file):
     starts = relevent['start'].to_numpy()
     ends = relevent['end'].to_numpy()
     
-    starts = np.sort(starts)
-    ends = np.sort(ends)
     
     
     n_interval = len(starts)
