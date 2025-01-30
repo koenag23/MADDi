@@ -3,27 +3,77 @@ import skimage.transform as skTrans
 import nibabel as nib
 import pandas as pd
 import os
+import shutil
 import sys
-import time
+import zipfile
 
+#python3 preprocess_images.py ADNI1_Complete_1Yr_3T_1_04_2025.csv ADNI1_Complete_1Yr_3T.zip
+
+def find_data_name(filename):
+    return filename[:filename.find('T')+1]
+
+def match_meta_to_zip(path_to_datadir_zip, path_to_metadir):
+    matching = dict()
+    csvs = os.listdir(path_to_metadir)
+        
+    zips = os.listdir(path_to_datadir_zip)
+
+    for csv in csvs:
+        key = path_to_metadir + '/' + csv
+        matching[key] = []
+        
+        mod_csv = csv.replace(' ', '_')
+        data_name = find_data_name(mod_csv)
+        for zip in zips:
+            mod_zip = zip.replace(' ', '_')
+            if mod_zip.find(data_name) == -1:
+                continue
+            value = path_to_datadir_zip + '/' + zip
+            matching[key].append(value)
+
+    return matching
+
+def extract_imgs(path_to_datadir):
+    
+    imgs_path = find_data_name(path_to_datadir) + '/'
+    root_dir = 'ADNI/'
+    
+    print(imgs_path)
+    
+    try:
+        os.mkdir(imgs_path)
+        with zipfile.ZipFile(path_to_datadir, 'r') as zip_ref:
+            zip_ref.extractall(imgs_path)
+            
+    except FileExistsError:
+        with zipfile.ZipFile(path_to_datadir, 'r') as zip_ref:
+            zip_ref.extractall(imgs_path)
+    
+    for root, _, files in os.walk(imgs_path):
+        for file in files:
+            if file.endswith(".nii"):
+                file_path = os.path.join(root, file)
+                os.rename(file_path, imgs_path + file)
+    
+    shutil.rmtree(imgs_path + root_dir)
+    print(imgs_path, "extracted")
+    return imgs_path
 
 def normalize_img(img_array):
     maxes = np.quantile(img_array,0.995,axis=(0,1,2))
     #print("Max value for each modality", maxes)
     return img_array/maxes
 
-
-def create_dataset(meta, meta_all,path_to_datadir):
+def create_dataset(meta, meta_all,path_to_datadir, frames):
     files = os.listdir(path_to_datadir)
     start = '_'
     end = '.nii'
+    
     for file in files:
         print(file)
         if file != '.DS_Store':
             path = os.path.join(path_to_datadir, file)
-            print(path)
             img_id = file.split(start)[-1].split(end)[0]
-            print(img_id)
             idx = meta[meta["Image Data ID"] == img_id].index[0]
             im = nib.load(path).get_fdata()
             n_i, n_j, n_k = im.shape
@@ -36,38 +86,42 @@ def create_dataset(meta, meta_all,path_to_datadir):
             im = np.array([im1,im2,im3]).T
             label = meta.at[idx, "Group"]
             subject = meta.at[idx, "Subject"]
+            visit = meta.at[idx, "Visit"]
             norm_im = normalize_img(im)
-            row = pd.DataFrame(data={'img_array': [1], 'label': label, "subject":subject})
+            row = pd.DataFrame(data={'img_array': [1], 'label': label, 'subject':subject, 'visit':visit})
             row['img_array'] = row['img_array'].astype('object')
             row.at[0,'img_array'] = im
-            meta_all = pd.concat([meta_all, row])
-            
-
-    meta_all.to_pickle("mri_meta.pkl")
-    """ meta_all.flush()
-    os.fsync(meta_all.fileno())
-    time.sleep(0.5) """
-
-
+            frames.append(row)      
 
 def main():
     args = sys.argv[1:]
-    path_to_meta = args[0] 
-    path_to_datadir = args[1]
-    print(path_to_meta)
-
- 
-    meta = pd.read_csv(path_to_meta)
-    print("opened meta")
-    print(len(meta))
-    #get rid of not needed columns
-    meta = meta[["Image Data ID", "Group", "Subject"]] #MCI = 0, CN =1, AD = 2
-    meta["Group"] = pd.factorize(meta["Group"])[0]
-    #initialize new dataset where arrays will go
-    meta_all = pd.DataFrame(columns = ["img_array","label","subject"])
-    print(meta)
-    create_dataset(meta, meta_all, path_to_datadir)
+    path_to_metadir = args[0] 
+    path_to_datadir_zip = args[1]
     
+    matching = match_meta_to_zip(path_to_datadir_zip, path_to_metadir)
+    
+    meta_all = pd.DataFrame(columns = ["img_array","label","subject","visit"])
+    
+    frames = []
+    for metacsv in matching.keys():
+        meta = pd.read_csv(metacsv)
+        print("Opened", metacsv)
+        #get rid of not needed columns
+        meta = meta[["Image Data ID", "Group", "Subject", "Visit"]] #MCI = 0, CN =1, AD = 2
+        meta["Group"] = pd.factorize(meta["Group"])[0]
+        
+        datazips = matching[metacsv]
+        for datazip in datazips:
+            path_to_datadir = extract_imgs(datazip)
+            
+            #initialize new dataset where arrays will go
+            create_dataset(meta, meta_all, path_to_datadir, frames)
+            shutil.rmtree(path_to_datadir)
+    
+    meta_all = pd.concat(frames)
+    meta_all.to_pickle("mri_meta.pkl")
+            
+
 if __name__ == '__main__':
     main()
     
