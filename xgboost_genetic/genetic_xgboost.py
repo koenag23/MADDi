@@ -23,6 +23,12 @@ y_train = y_train + 1
 y_test = y_test + 1
 
 
+# Remove the specified columns from X_train and X_test that were found to be causing the accuracy to be 100%
+cols_to_remove = list(range(40606, 40609))
+X_train = np.delete(X_train, cols_to_remove, axis=1)
+X_test = np.delete(X_test, cols_to_remove, axis=1)
+
+
 #Train the model
 dtrain = xgb.DMatrix(X_train, label=y_train)
 dtest = xgb.DMatrix(X_test, label=y_test)
@@ -37,6 +43,21 @@ params = {
     'eta': 0.1,                   # Learning rate
     'seed': 42                    # Seed for reproducibility
 }
+
+
+# #training using a subset of the data
+# #this is how I figured out which collumns were messing with the accuracy
+# X_train_subset = X_train[:, :40609]  # Select first 3 features
+# dtrain_subset = xgb.DMatrix(X_train_subset, label=y_train)
+# X_test_subset = X_test[:, :40609]  # Same features as used in training
+# dtest_subset = xgb.DMatrix(X_test_subset, label=y_test)
+# bst_subset = xgb.train(params, dtrain_subset, num_boost_round=100)
+# y_pred_subset = bst_subset.predict(dtest_subset)
+# accuracy_subset = accuracy_score(y_test, y_pred_subset)
+# print(f"Accuracy on subset: {accuracy_subset:.2f}")
+
+
+
 bst = xgb.train(params, dtrain, num_boost_round=100)
 
 #Evaluate the model
