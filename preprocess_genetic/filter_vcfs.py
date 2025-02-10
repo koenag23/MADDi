@@ -1,4 +1,4 @@
-
+import pickle
 import io
 import os
 import pandas as pd
@@ -32,7 +32,7 @@ def preprocess_file(vcf_file):
     # path name of the genes list
     genes = pd.read_csv("gene_list.csv")
     
-    file_name = "vcf_collection/ADNI.808_indiv.minGQ_21.pass.ADNI_ID.chr23.vcf.gz"
+    file_name = "vcf_collection/" + vcf_file
         
     
     names = get_vcf_names(file_name)
@@ -48,33 +48,23 @@ def preprocess_file(vcf_file):
     starts = relevent['start'].to_numpy()
     ends = relevent['end'].to_numpy()
     
+    unique = set()
     
-    
-    n_interval = len(starts)
-    duplicate = (0,0)
-    i = 0
-    while(i < n_interval):
-        if starts[i] == duplicate[0] and ends[i] == duplicate[1]:
-            starts = np.delete(starts, i)
-            ends = np.delete(ends, i)
-            n_interval = len(starts)
-        if i == len(starts):
-            break
-        duplicate = (starts[i], ends[i])
-        i += 1
+    for i in range(len(starts)):
+        unique.add((starts[i], ends[i]))
         
-            
-    n_interval = len(starts)
+    unique = sorted(list(unique))
+    pos_array = np.asarray(unique)
     
     # Concatenate with debug output
     frames = []
     indexed_items = enumerate(vcf_chunks)
-    for num, chunk in tqdm(indexed_items):
+    for num, chunk in indexed_items:
+        print(num)
         indexes = []
         positions = chunk["POS"]
         for i, position in enumerate(positions):
-            for j in range(n_interval):
-                start, end = starts[j], ends[j]
+            for start, end in pos_array:
                 if (position >= start) and (position <= end):
                     indexes.append(i)
                     
@@ -86,16 +76,23 @@ def preprocess_file(vcf_file):
         df = pd.concat(frames, ignore_index=True)
         df.to_pickle(vcf_file[:-7] + ".pkl")
         gc.collect()
+        
 
 def main():
-    preprocess_file('hi')
+    
+    """ with open("ADNI.808_indiv.minGQ_21.pass.ADNI_ID.chr3.pkl", "rb") as file:
+        test = pickle.load(file)
+        
+    test.to_csv("test.csv") """
+    
+    preprocess_file("ADNI.808_indiv.minGQ_21.pass.ADNI_ID.chr18.vcf.gz")
     # folder name of where the vcf files are stored
-    files = os.listdir("vcf_collection/")
+    """ files = os.listdir("vcf_collection/")
     files = [file for file in files if file.endswith(".gz")]
     files.sort()
     #print(files)
     for file in files[14:]:
-        preprocess_file(file) 
+        preprocess_file(file)  """
     
     
 
