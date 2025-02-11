@@ -2,22 +2,7 @@ import json
 
 # Load the JSON file
 input_file = "preprocess_clinical/clinical.json"
-output_file = "preprocess_clinical/clinical_prompts.txt"
-
-# Mapping functions
-def map_groupN(value):
-    if value == "0.0":
-        return "Cognitively Normal"
-    elif value == "1.0":
-        return "Mild Cognitive Impairment"
-    elif value == "2.0":
-        return "Alzheimer's Disease"
-    elif "between 1.0 and 2.0" in value:
-        return "between Mild Cognitive Impairment and Alzheimer's Disease"
-    elif "between 0.0 and 1.0" in value:
-        return "between Cognitively Normal and Mild Cognitive Impairment"
-    else:
-        return "Unknown"
+output_file = "preprocess_clinical/clinical_prompts.json"
 
 #this one is for {NXABNORM}
 def map_eligibility(value):
@@ -47,7 +32,7 @@ def map_primary_language(value):
 def map_ethnicity(value):
     return {"-4.0": "Information not available", "1.0": "Hispanic or Latino", "2.0": "Not Hispanic or Latino", "3.0": "Unknown"}.get(value, "Unknown")
 
-#this one is for {PTRACCAT}
+#this one is for {PTRACCAT} 
 def map_race(value):
     return {"-4.0": "Information not available", "1.0": "American Indian or Alaskan Native", "2.0": "Asian", "3.0": "Native Hawaiian or Other Pacific Islander", "4.0": "Black or African American", "5.0": "White", "6.0": "More than one race", "7.0": "Unknown"}.get(value, "Unknown")
 
@@ -67,53 +52,64 @@ def map_presence(value):
 with open(input_file, "r") as f:
     patients = json.load(f)
 
-# Process each patient
-with open(output_file, "w") as f:
-    for patient_id, data in patients.items():
-        present_symptoms = []
-        absent_symptoms = []
-        
-        symptoms = {
-            "Significant Vision Impairment": data["NXVISUAL"],
-            "Tremors": data["NXTREMOR"],
-            "Sensory Issues": data["NXSENSOR"],
-            "Significant Auditory Impairment": data["NXAUDITO"]
-        }
-        
-        for symptom, value in symptoms.items():
-            if map_presence(value) == "Present":
-                present_symptoms.append(symptom)
-            else:
-                absent_symptoms.append(symptom)
-        
-        present_sentence = "The symptoms that are present are: " + ", ".join(present_symptoms) + "." if present_symptoms else "No symptoms are present."
-        absent_sentence = "The symptoms that are absent are: " + ", ".join(absent_symptoms) + "." if absent_symptoms else "No symptoms are absent."
-        
-        report = f"""
-        Patient {patient_id} ({data['RID']}) is part of the {data['Phase']} phase and is diagnosed with {map_groupN(data['GroupN'])}.
-        
-        Based on a neurological examination, the patient was {map_eligibility(data['NXABNORM'])} for the study.
-        The patient was assigned {map_gender(data['PTGENDER'])} at birth.
-        They live in {map_living_situation(data['PTHOME'])} and are currently {map_marital_status(data['PTMARRY'])}.
-        
-        Their primary language is {map_primary_language(data['PTPLANG'])}.
-        Their racial category is {map_race(data['PTRACCAT'])} and ethnicity is {map_ethnicity(data['PTETHCAT'])}.
-        
-        They were born in {data['PTDOBYY']} and were {data['AGE']} years old at their last visit on {data['VISDATE']}.
-        
-        {present_sentence}
-        {absent_sentence}
-        
-        Their cranial nerves are {map_normal_abnormal(data['NXNERVE'])}, and their level of consciousness is {map_normal_abnormal(data['NXCONSCI'])}.
-        Motor strength is {map_normal_abnormal(data['NXMOTOR'])}, plantar reflexes are {map_normal_abnormal(data['NXPLANTA'])}, gait is {map_normal_abnormal(data['NXGAIT'])}, and deep tendon reflexes are {map_normal_abnormal(data['NXTENDON'])}.
-        
-        Additional cognitive and physical health indicators include:
-        - Harmonized composite language score: {data['PHC_LAN']}
-        - Harmonized composite executive function score: {data['PHC_EXF']}
-        - Harmonized composite visuospatial score: {data['PHC_VSP']}
-        - Harmonized composite memory score: {data['PHC_MEM']}
-        """
-        
-        f.write(report + "\n" + "-"*80 + "\n")
+output_data = {}
 
-print(f"saved to  {output_file}")
+# Process each patient
+for patient_id, data in patients.items():
+    present_symptoms = []
+    absent_symptoms = []
+    
+    symptoms = {
+        "Significant Vision Impairment": data["NXVISUAL"],
+        "Tremors": data["NXTREMOR"],
+        "Sensory Issues": data["NXSENSOR"],
+        "Significant Auditory Impairment": data["NXAUDITO"]
+    }
+    
+    for symptom, value in symptoms.items():
+        if map_presence(value) == "Present":
+            present_symptoms.append(symptom)
+        else:
+            absent_symptoms.append(symptom)
+    
+    present_sentence = "The symptoms that are present are: " + ", ".join(present_symptoms) + "." if present_symptoms else "No symptoms are present."
+    absent_sentence = "The symptoms that are absent are: " + ", ".join(absent_symptoms) + "." if absent_symptoms else "No symptoms are absent."
+    
+    present_sentence = "The symptoms that are present are: " + ", ".join(present_symptoms) + "." if present_symptoms else "No symptoms are present."
+    absent_sentence = "The symptoms that are absent are: " + ", ".join(absent_symptoms) + "." if absent_symptoms else "No symptoms are absent."
+    
+    question = f""" 
+    Patient {patient_id} ({data['RID']}) is part of the {data['Phase']} phase.
+    Based on a neurological examination, the patient was {map_eligibility(data['NXABNORM'])} for the study.
+    The patient was assigned {map_gender(data['PTGENDER'])} at birth.
+    They live in {map_living_situation(data['PTHOME'])} and are currently {map_marital_status(data['PTMARRY'])}.
+    
+    Their primary language is {map_primary_language(data['PTPLANG'])}.
+    Their racial category is {map_race(data['PTRACCAT'])} and ethnicity is {map_ethnicity(data['PTETHCAT'])}.
+    
+    They were born in {data['PTDOBYY']} and were {data['AGE']} years old at their last visit on {data['VISDATE']}.
+    
+    {present_sentence}
+    {absent_sentence}
+    
+    Their cranial nerves are {map_normal_abnormal(data['NXNERVE'])}, and their level of consciousness is {map_normal_abnormal(data['NXCONSCI'])}.
+    Motor strength is {map_normal_abnormal(data['NXMOTOR'])}, plantar reflexes are {map_normal_abnormal(data['NXPLANTA'])}, gait is {map_normal_abnormal(data['NXGAIT'])}, and deep tendon reflexes are {map_normal_abnormal(data['NXTENDON'])}.
+    
+    Additional cognitive and physical health indicators include:
+    - Harmonized composite language score: {data['PHC_LAN']}
+    - Harmonized composite executive function score: {data['PHC_EXF']}
+    - Harmonized composite visuospatial score: {data['PHC_VSP']}
+    - Harmonized composite memory score: {data['PHC_MEM']}
+    """
+
+    
+    output_data[patient_id] = {
+        "question": question.strip(),
+        "answer": data["GroupN"]
+    }
+
+# Save as JSON
+with open(output_file, "w") as f:
+    json.dump(output_data, f, indent=4)
+
+print(f"Patient reports saved to {output_file}")
