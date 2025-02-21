@@ -6,8 +6,11 @@ import os
 import shutil
 import sys
 import zipfile
+import tqdm
+from PIL import Image as img
+import gc
 
-#python3 preprocess_images.py ADNI1_Complete_1Yr_3T_1_04_2025.csv ADNI1_Complete_1Yr_3T.zip
+#python3 preprocess_images.py metadir datazips
 
 def find_data_name(filename):
     return filename[:filename.find('T')+1]
@@ -38,16 +41,9 @@ def extract_imgs(path_to_datadir):
     imgs_path = find_data_name(path_to_datadir) + '/'
     root_dir = 'ADNI/'
     
-    print(imgs_path)
-    
-    try:
-        os.mkdir(imgs_path)
-        with zipfile.ZipFile(path_to_datadir, 'r') as zip_ref:
-            zip_ref.extractall(imgs_path)
-            
-    except FileExistsError:
-        with zipfile.ZipFile(path_to_datadir, 'r') as zip_ref:
-            zip_ref.extractall(imgs_path)
+    os.mkdir(imgs_path)
+    with zipfile.ZipFile(path_to_datadir, 'r') as zip_ref:
+        zip_ref.extractall(imgs_path)
     
     for root, _, files in os.walk(imgs_path):
         for file in files:
@@ -59,18 +55,12 @@ def extract_imgs(path_to_datadir):
     print(imgs_path, "extracted")
     return imgs_path
 
-def normalize_img(img_array):
-    maxes = np.quantile(img_array,0.995,axis=(0,1,2))
-    #print("Max value for each modality", maxes)
-    return img_array/maxes
-
-def create_dataset(meta, meta_all,path_to_datadir, frames):
+def create_dataset(meta, meta_all, path_to_datadir):
     files = os.listdir(path_to_datadir)
     start = '_'
     end = '.nii'
     
     for file in files:
-        print(file)
         if file != '.DS_Store':
             path = os.path.join(path_to_datadir, file)
             img_id = file.split(start)[-1].split(end)[0]
@@ -80,18 +70,18 @@ def create_dataset(meta, meta_all,path_to_datadir, frames):
             center_i = (n_i - 1) // 2  
             center_j = (n_j - 1) // 2
             center_k = (n_k - 1) // 2
-            im1 = skTrans.resize(im[center_i, :, :], (72, 72), order=1, preserve_range=True)
-            im2 = skTrans.resize(im[:, center_j, :], (72, 72), order=1, preserve_range=True)
-            im3 = skTrans.resize(im[:, :, center_k], (72, 72), order=1, preserve_range=True)
-            im = np.array([im1,im2,im3]).T
+
+            im1 = img.fromarray(skTrans.resize(im[center_i, :, :], (72,72), order=1, preserve_range=True))
+            im2 = img.fromarray(skTrans.resize(im[:, center_j, :], (72,72), order=1, preserve_range=True))
+            im3 = img.fromarray(skTrans.resize(im[:, :, center_k], (72,72), order=1, preserve_range=True))
+            
             label = meta.at[idx, "Group"]
             subject = meta.at[idx, "Subject"]
             visit = meta.at[idx, "Visit"]
-            norm_im = normalize_img(im)
-            row = pd.DataFrame(data={'img_array': [1], 'label': label, 'subject':subject, 'visit':visit})
-            row['img_array'] = row['img_array'].astype('object')
-            row.at[0,'img_array'] = im
-            frames.append(row)      
+
+            frame = np.array([im1, im2, im3, label, subject, visit], dtype=object)
+            meta_all.index += 1
+            meta_all.loc[0] = frame
 
 def main():
     args = sys.argv[1:]
@@ -100,9 +90,8 @@ def main():
     
     matching = match_meta_to_zip(path_to_datadir_zip, path_to_metadir)
     
-    meta_all = pd.DataFrame(columns = ["img_array","label","subject","visit"])
+    meta_all = pd.DataFrame(columns = ["im1","im2","im3","label","subject","visit"], dtype=object)
     
-    frames = []
     for metacsv in matching.keys():
         meta = pd.read_csv(metacsv)
         print("Opened", metacsv)
@@ -111,17 +100,21 @@ def main():
         meta["Group"] = pd.factorize(meta["Group"])[0]
         
         datazips = matching[metacsv]
-        for datazip in datazips:
+        datazips.sort()
+        for datazip in tqdm.tqdm(datazips):
             path_to_datadir = extract_imgs(datazip)
             
             #initialize new dataset where arrays will go
-            create_dataset(meta, meta_all, path_to_datadir, frames)
+            create_dataset(meta, meta_all, path_to_datadir)
             shutil.rmtree(path_to_datadir)
+            
+            gc.collect()
     
-    meta_all = pd.concat(frames)
+    meta_all = meta_all.sort_index()
     meta_all.to_pickle("mri_meta.pkl")
             
 
 if __name__ == '__main__':
+    
     main()
     
