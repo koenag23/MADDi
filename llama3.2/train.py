@@ -2,7 +2,10 @@ from unsloth import FastVisionModel, is_bf16_supported
 from unsloth.trainer import UnslothVisionDataCollator
 import torch
 from transformers import TextStreamer
-from trl import SFTTrainer, SFTConfi
+from trl import SFTTrainer, SFTConfig
+from data_loader import convert_to_conversation
+import pickle as pkl
+import pandas as pd
 
 # 4bit pre quantized models we support for 4x faster downloading + no OOMs.
 fourbit_models = [
@@ -23,10 +26,10 @@ fourbit_models = [
 ] # More models at https://huggingface.co/unsloth
 
 model, tokenizer = FastVisionModel.from_pretrained(
-    model_name="unsloth/Llama-3.2-11B-Vision-bnb-4bit",
+    model_name="unsloth/Llama-3.2-11B-Vision-Instruct-bnb-4bit",
     load_in_4bit = True, # Use 4bit to reduce memory use. False for 16bit LoRA.
     use_gradient_checkpointing = "unsloth", # True or "unsloth" for long context
-    device_map = "cuda:0",
+    device_map = "cpu",
     use_exact_model_name=True
 )
 
@@ -48,10 +51,24 @@ model = FastVisionModel.get_peft_model(
 )
 
 # Still working on getting functional dataset
-dataset = []
-converted_dataset = []
+path = 'img_test.pkl'
+with open(path, 'rb') as f:
+        object = pkl.load(f)
+    
+df = pd.DataFrame(object)
+#messages = convert_to_conversation(path)
 
-FastVisionModel.for_training(model) # Enable for training!
+image = df['im1'][0].convert('L')
+instruction = "You are an expert radiographer. Classify this image as Cognitively Normal (CN), Mild Cognitive Impairment (MCI), or Dementia (D)"
+
+messages = [
+    {"role": "user", "content": [
+        {"type": "image"},
+        {"type": "text", "text": instruction}
+    ]}
+]
+
+""" FastVisionModel.for_training(model) # Enable for training!
 
 trainer = SFTTrainer(
     model = model,
@@ -82,20 +99,10 @@ trainer = SFTTrainer(
         dataset_num_proc = 4,
         max_seq_length = 2048,
     ),
-)
+) """
 
 FastVisionModel.for_inference(model) # Enable for inference!
-
-image = dataset[0]["image"]
-instruction = "You are an expert radiographer. Describe accurately what you see in this image."
-
-messages = [
-    {"role": "user", "content": [
-        {"type": "image"},
-        {"type": "text", "text": instruction}
-    ]}
-]
-input_text = tokenizer.apply_chat_template(messages, add_generation_prompt = True)
+input_text = tokenizer.apply_chat_template(messages, chat_template=None, add_generation_prompt = True)
 inputs = tokenizer(
     image,
     input_text,
