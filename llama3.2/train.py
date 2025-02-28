@@ -59,11 +59,23 @@ df = pd.DataFrame(object)
 #messages = convert_to_conversation(path)
 
 image = df['im1'][0].convert('L')
-instruction = "You are an expert radiographer. Classify this image as Cognitively Normal (CN), Mild Cognitive Impairment (MCI), or Dementia (D)"
+
+metadata_fields = ["EX:age", "EX:gender", "etc..."] #alter as per our metadata fields
+metadata = {field: df[field][0] for field in metadata_fields if field in df}
+
+metadata_text = "\n".join([f"{key}: {value}" for key, value in metadata.items()])
+
+#prompt with mri + metadata input
+instruction = (
+    "You are a expert radiologist specializing in neuroimaging. "
+    "Analyze the provided brain MRI scan along with its corresponding metadata. "
+    "Based on the imaging features and patient information, classify the case into one of the following categories: "
+    "Cognitively Normal (CN), Mild Cognitive Impairment (MCI), or Dementia (D).\n\n"
+    f"Patient Metadata:\n{metadata_text}"
 
 messages = [
     {"role": "user", "content": [
-        {"type": "image"},
+        {"type": "image", "image": image}, #to make sure the image passess properly
         {"type": "text", "text": instruction}
     ]}
 ]
