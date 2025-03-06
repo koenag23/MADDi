@@ -1,35 +1,108 @@
+"""
+To install Unsloth:
+
+conda create --name unsloth_env \
+    python=3.11 \
+    pytorch-cuda=12.1 \
+    pytorch cudatoolkit xformers -c pytorch -c nvidia -c xformers \
+    -y
+conda activate unsloth_env
+
+pip install "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"
+pip install --no-deps trl peft accelerate bitsandbytes
+
+To open Unsloth Venv:
+conda activate unsloth_env
+
+As for how the files are supposed to be, make sure the test and train files are in the same directory as train.py
+"""
+
 from unsloth import FastVisionModel, is_bf16_supported
 from unsloth.trainer import UnslothVisionDataCollator
 import torch
 from transformers import TextStreamer
 from trl import SFTTrainer, SFTConfig
-from data_loader import convert_to_conversation
 import pickle as pkl
 import pandas as pd
 
-# 4bit pre quantized models we support for 4x faster downloading + no OOMs.
-fourbit_models = [
-    "unsloth/Llama-3.2-11B-Vision-Instruct-bnb-4bit", # Llama 3.2 vision support
-    "unsloth/Llama-3.2-11B-Vision-bnb-4bit",
-    "unsloth/Llama-3.2-90B-Vision-Instruct-bnb-4bit", # Can fit in a 80GB card!
-    "unsloth/Llama-3.2-90B-Vision-bnb-4bit",
+def convert_to_conversation(df):
+    with open(path, 'rb') as f:
+        object = pkl.load(f)
+    
+    df = pd.DataFrame(object)
+    
+    messages = []
+    
+    for sindex in range(df.shape[0]):
+        row = df.iloc[sindex]
+        
+        axial = row['im1'].convert('L')
+        coronal = row['im2'].convert('L')
+        sagittal = row['im2'].convert('L')
+        subject = row['subject']
+        visit = row['visit']
+        
+        caption = f"This is an Axial MRI Scan of {subject}'s {visit} visit."
+        
+        instruction = "You are an expert radiographer. Classify this image as Cognitively Normal (CN), Mild Cognitive Impairment (MCI), or Dementia (D)"
+        
+        conversation = [
+            { "role": "user",
+            "content" : [
+                {"type" : "text",  "text"  : instruction},
+                {"type" : "image", "image" : axial} ]
+            },
+            { "role" : "assistant",
+            "content" : [
+                {"type" : "text",  "text"  : caption} ]
+            },
+        ]
+        
+        messages.append({ "messages" : conversation })
+        
+        caption = f"This is a Coronal MRI Scan of {subject}'s {visit} visit."
+        
+        conversation = [
+            { "role": "user",
+            "content" : [
+                {"type" : "text",  "text"  : instruction},
+                {"type" : "image", "image" : coronal} ]
+            },
+            { "role" : "assistant",
+            "content" : [
+                {"type" : "text",  "text"  : caption} ]
+            },
+        ]
+        
+        messages.append({ "messages" : conversation })
+        
+        caption = f"This is a Sagittal MRI Scan of {subject}'s {visit} visit."
+        
+        conversation = [
+            { "role": "user",
+            "content" : [
+                {"type" : "text",  "text"  : instruction},
+                {"type" : "image", "image" : sagittal} ]
+            },
+            { "role" : "assistant",
+            "content" : [
+                {"type" : "text",  "text"  : caption} ]
+            },
+        ]
+        
+        messages.append({ "messages" : conversation })
+        
+    return messages
 
-    "unsloth/Pixtral-12B-2409-bnb-4bit",              # Pixtral fits in 16GB!
-    "unsloth/Pixtral-12B-Base-2409-bnb-4bit",         # Pixtral base model
-
-    "unsloth/Qwen2-VL-2B-Instruct-bnb-4bit",          # Qwen2 VL support
-    "unsloth/Qwen2-VL-7B-Instruct-bnb-4bit",
-    "unsloth/Qwen2-VL-72B-Instruct-bnb-4bit",
-
-    "unsloth/llava-v1.6-mistral-7b-hf-bnb-4bit",      # Any Llava variant works!
-    "unsloth/llava-1.5-7b-hf-bnb-4bit",
-] # More models at https://huggingface.co/unsloth
+path = 'img_train.pkl'
+    
+messages = convert_to_conversation(path)
 
 model, tokenizer = FastVisionModel.from_pretrained(
     model_name="unsloth/Llama-3.2-11B-Vision-Instruct-bnb-4bit",
     load_in_4bit = True, # Use 4bit to reduce memory use. False for 16bit LoRA.
     use_gradient_checkpointing = "unsloth", # True or "unsloth" for long context
-    device_map = "cpu",
+    device_map = "cuda:0",
     use_exact_model_name=True
 )
 
@@ -53,21 +126,15 @@ model = FastVisionModel.get_peft_model(
 # Still working on getting functional dataset
 path = 'img_test.pkl'
 with open(path, 'rb') as f:
-        object = pkl.load(f)
+    object = pkl.load(f)
     
 df = pd.DataFrame(object)
-#messages = convert_to_conversation(path)
+messages = convert_to_conversation(path)
 
 image = df['im1'][0].convert('L')
-instruction = "You are an expert radiographer. Classify this image as Cognitively Normal (CN), Mild Cognitive Impairment (MCI), or Dementia (D)"
 
-messages = [
-    {"role": "user", "content": [
-        {"type": "image"},
-        {"type": "text", "text": instruction}
-    ]}
-]
 
+# WIP Training Code
 """ FastVisionModel.for_training(model) # Enable for training!
 
 trainer = SFTTrainer(
