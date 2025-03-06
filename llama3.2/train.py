@@ -58,9 +58,12 @@ with open(path, 'rb') as f:
 df = pd.DataFrame(object)
 #messages = convert_to_conversation(path)
 
-image = df['im1'][0].convert('L')
+#altered to incorporate all 3 types of scans for a more well-rounded prediction
+image1 = df['im1'][0].convert('L')
+image2 = df['im2'][0].convert('L')
+image3 = df['im3'][0].convert('L')
 
-metadata_fields = ["EX:age", "EX:gender", "etc..."] #alter as per our metadata fields
+metadata_fields = ["subject", "visit"] #altered as per metadata fields in img_test
 metadata = {field: df[field][0] for field in metadata_fields if field in df}
 
 metadata_text = "\n".join([f"{key}: {value}" for key, value in metadata.items()])
@@ -68,14 +71,16 @@ metadata_text = "\n".join([f"{key}: {value}" for key, value in metadata.items()]
 #prompt with mri + metadata input
 instruction = (
     "You are a expert radiologist specializing in neuroimaging. "
-    "Analyze the provided brain MRI scan along with its corresponding metadata. "
+    "Analyze the provided brain MRI scans, which include axial, coronal, and sagittal views, along with their corresponding metadata. "
     "Based on the imaging features and patient information, classify the case into one of the following categories: "
     "Cognitively Normal (CN), Mild Cognitive Impairment (MCI), or Dementia (D).\n\n"
     f"Patient Metadata:\n{metadata_text}"
 
 messages = [
     {"role": "user", "content": [
-        {"type": "image", "image": image}, #to make sure the image passess properly
+        {"type": "image", "image": image1},
+        {"type": "image", "image": image2},
+        {"type": "image", "image": image3},
         {"type": "text", "text": instruction}
     ]}
 ]
@@ -116,7 +121,7 @@ trainer = SFTTrainer(
 FastVisionModel.for_inference(model) # Enable for inference!
 input_text = tokenizer.apply_chat_template(messages, chat_template=None, add_generation_prompt = True)
 inputs = tokenizer(
-    image,
+    [image1, image2, image3], #model will incorporate all 3 types of scans rather than just im1
     input_text,
     add_special_tokens = False,
     return_tensors = "pt",
