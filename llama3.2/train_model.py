@@ -41,16 +41,16 @@ instruction = (
 #########################################
 # 2. Load training images and labels
 #########################################
-# Load images from pickle (assuming a DataFrame-like structure with column 'im1')
+# Load images from pickle (combining all three images into one numpy array)
 with open("img_train.pkl", "rb") as f:
     train_images_data = pkl.load(f)
 df_train = pd.DataFrame(train_images_data)
-train_images = [row["im1"] for _, row in df_train.iterrows()]
+train_images = df_train[['coronal', 'axial', 'sagittal']].to_numpy()
 
 # Load corresponding labels (a list of strings, one per image)
 with open("img_y_train.pkl", "rb") as f:
-    train_labels = pkl.load(f)
-train_labels = train_labels['label']
+    df_train_labels = pkl.load(f)
+train_labels = df_train_labels['label'].to_numpy()
 def convert_to_conversation(image, label):
     """
     Converts an image (in PIL format) and its label into a conversation sample.
@@ -170,10 +170,11 @@ print(f"Peak reserved memory for training % of max memory = {lora_percentage} %.
 with open("img_test.pkl", "rb") as f:
     test_images_data = pkl.load(f)
 df_test = pd.DataFrame(test_images_data)
-test_images = [row["im1"] for _, row in df_test.iterrows()]
+test_images = df_test[['coronal', 'axial', 'sagittal']].to_numpy()
 
 with open("labels_test.pkl", "rb") as f:
-    test_labels = pkl.load(f)
+    df_test_labels = pkl.load(f)
+test_labels = df_test_labels['label'].to_numpy()
 
 def create_few_shot_prompt(test_image, num_shots, demo_dataset):
     """

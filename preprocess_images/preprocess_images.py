@@ -71,9 +71,9 @@ def create_dataset(meta, meta_all, path_to_datadir):
             center_j = (n_j - 1) // 2
             center_k = (n_k - 1) // 2
 
-            im1 = img.fromarray(skTrans.resize(im[center_i, :, :], (72,72), order=1, preserve_range=True))
-            im2 = img.fromarray(skTrans.resize(im[:, center_j, :], (72,72), order=1, preserve_range=True))
-            im3 = img.fromarray(skTrans.resize(im[:, :, center_k], (72,72), order=1, preserve_range=True))
+            im1 = img.fromarray(skTrans.resize(im[center_i, :, :], (n_i,n_i), order=1, preserve_range=True))
+            im2 = img.fromarray(skTrans.resize(im[:, center_j, :], (n_j,n_j), order=1, preserve_range=True))
+            im3 = img.fromarray(skTrans.resize(im[:, :, center_k], (n_k,n_k), order=1, preserve_range=True))
             
             label = meta.at[idx, "Group"]
             subject = meta.at[idx, "Subject"]
@@ -82,6 +82,9 @@ def create_dataset(meta, meta_all, path_to_datadir):
             frame = np.array([im1, im2, im3, label, subject, visit], dtype=object)
             meta_all.index += 1
             meta_all.loc[0] = frame
+
+            del frame
+            del label, subject, visit, im1, im2, im3
 
 def main():
     args = sys.argv[1:]
@@ -111,6 +114,8 @@ def main():
             gc.collect()
     
     meta_all = meta_all.sort_index()
+    
+    print(meta_all)
     meta_all.to_pickle("mri_meta.pkl")
             
 
