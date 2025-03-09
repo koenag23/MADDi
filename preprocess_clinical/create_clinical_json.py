@@ -18,5 +18,4 @@ def csv_to_json(csv_filepath, json_filepath):
         json.dump(data, json_file, indent=4)
 
 
-# Example usage
 csv_to_json('clinical.csv', 'clinical.json')
