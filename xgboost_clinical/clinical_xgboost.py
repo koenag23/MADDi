@@ -113,22 +113,14 @@ list_of_keys = list_of_keys.split(',')
 
 # 2. Preprocess the data
 X = data.drop(columns=['GroupN'])  # Features
-<<<<<<< Updated upstream
 X = X.drop(columns=['PTID', 'RID', 'Phase', 'VISDATE'])
 X = X.drop(columns=['GroupN_0.0','GroupN_1.0','GroupN_2.0'])
-=======
-X = X.drop(columns=['PTID', 'RID', 'Phase', 'VISDATE', 'GroupN_0.0', 'GroupN_1.0', 'GroupN_2.0'])
->>>>>>> Stashed changes
 X = X.drop(X.columns[0], axis=1)
 print(X.shape)
 y = data['GroupN']  # Target
 
 # 3. Split the data
-<<<<<<< Updated upstream
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-=======
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=42)
->>>>>>> Stashed changes
 
 # 4. Train the XGBoost model
 # Convert to DMatrix format
